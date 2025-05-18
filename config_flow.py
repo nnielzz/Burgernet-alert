@@ -14,7 +14,7 @@ from homeassistant.helpers.selector import (
 from .const import DOMAIN
 
 STEP_USER_DATA_SCHEMA = vol.Schema({
-    vol.Required(CONF_NAME, default="Burgernet Alerts"): str,
+    vol.Required(CONF_NAME, default="Burgernet Alert"): str,
     vol.Required(
         "location_source",
         default="home"
@@ -50,7 +50,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema({
 
 
 class BurgerNetConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Burgernet Alerts integration."""
+    """Handle a config flow for Burgernet Alert integration."""
 
     VERSION = 1
 
