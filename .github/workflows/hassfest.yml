@@ -1,11 +1,9 @@
 name: hassfest
-
 on:
   push:
     branches:
       - main
   pull_request:
-
 jobs:
   hassfest:
     runs-on: ubuntu-latest
