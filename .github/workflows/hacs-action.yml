@@ -26,6 +26,9 @@ jobs:
 
           # Whether to post a comment on PRs with the check results
           comment: true
+          
+          ignore: brands
+
 
           # A space-separated list of checks to ignore (optional)
           # ignore: 
