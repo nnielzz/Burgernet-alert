@@ -1,15 +1,16 @@
-import asyncio, math, logging
+import math
+import logging
 from datetime import timedelta
+
 import aiohttp
 import async_timeout
 
-from homeassistant import config_entries
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.update_coordinator import (
-    DataUpdateCoordinator, CoordinatorEntity
+    DataUpdateCoordinator,
+    CoordinatorEntity,
 )
 from homeassistant.const import CONF_ENTITY_ID
-from homeassistant.helpers import entity_platform
 
 from .const import DOMAIN, API_ENDPOINT, STATIC_POSTER_URL
 
@@ -18,20 +19,22 @@ _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(minutes=10)
 
 def haversine(lat1, lon1, lat2, lon2):
-    # calculate distance in meters between two lat/lon points
+    """Return distance in meters between two lat/lon points."""
     R = 6371000
     φ1, φ2 = math.radians(lat1), math.radians(lat2)
     Δφ = math.radians(lat2 - lat1)
     Δλ = math.radians(lon2 - lon1)
-    a = math.sin(Δφ/2)**2 + math.cos(φ1)*math.cos(φ2)*math.sin(Δλ/2)**2
-    return R * (2 * math.atan2(math.sqrt(a), math.sqrt(1-a)))
+    a = math.sin(Δφ / 2) ** 2 + math.cos(φ1) * math.cos(φ2) * math.sin(Δλ / 2) ** 2
+    return R * (2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)))
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up the Burgernet sensor from a config entry."""
     location_source = entry.data["location_source"]
-    entity_id = entry.data.get("entity_id")
+    tracker_entity_id = entry.data.get(CONF_ENTITY_ID)
+    max_radius_km = entry.data.get("max_radius", 5)
+    max_radius_m = max_radius_km * 1000
 
-    async def async_fetch_alerts():
+    async def _async_fetch():
         headers = {"Accept": "application/json"}
         async with async_timeout.timeout(10):
             async with aiohttp.ClientSession() as session:
@@ -44,37 +47,45 @@ async def async_setup_entry(hass, entry, async_add_entities):
         _LOGGER,
         name=DOMAIN,
         update_interval=SCAN_INTERVAL,
-        update_method=async_fetch_alerts,
+        update_method=_async_fetch,
     )
+
+    # First fetch
     await coordinator.async_config_entry_first_refresh()
 
-    async_add_entities([BurgerNetSensor(coordinator, hass, location_source, entity_id)], True)
+    async_add_entities([
+        BurgerNetSensor(coordinator, hass, location_source, tracker_entity_id, max_radius_m)
+    ], update_before_add=True)
 
 class BurgerNetSensor(CoordinatorEntity, SensorEntity):
-    def __init__(self, coordinator, hass, location_source, entity_id):
+    """A sensor to report the latest Burgernet/AMBER alert."""
+
+    def __init__(self, coordinator, hass, location_source, tracker_entity_id, max_radius_m):
         super().__init__(coordinator)
         self.hass = hass
         self.location_source = location_source
-        self.entity_id = entity_id
+        self.tracker_entity_id = tracker_entity_id
+        self.max_radius_m = max_radius_m
+
+        # Fixed name and unique_id → sensor.burgernet_alert
         self._attr_name = "Burgernet Alert"
-        self._attr_unique_id = DOMAIN
+        self._attr_unique_id = "burgernet_alert"
 
     @property
     def state(self):
-        data = self.coordinator.data or []
-        alert = self._filter_by_location(data)
-        if not alert:
-            return "none"
-        return "active"
+        alerts = self.coordinator.data or []
+        return "active" if self._filtered_alert(alerts) else "none"
 
     @property
     def extra_state_attributes(self):
-        data = self.coordinator.data or []
-        alert = self._filter_by_location(data)
+        alerts = self.coordinator.data or []
+        alert = self._filtered_alert(alerts)
         if not alert:
             return {"poster_url": None}
+
         msg = alert["Message"]
         area = alert.get("Area", {})
+
         return {
             "alert_id": alert["AlertId"],
             "level": alert["AlertLevel"],
@@ -89,29 +100,39 @@ class BurgerNetSensor(CoordinatorEntity, SensorEntity):
             "poster_url": STATIC_POSTER_URL,
         }
 
-    def _filter_by_location(self, alerts):
-        """Return the first alert matching location, or any Amber Alert."""
-        # get current lat/lon
-        if self.location_source == "entity" and self.entity_id:
-            state = self.hass.states.get(self.entity_id)
-            lat = state.attributes.get("latitude")
-            lon = state.attributes.get("longitude")
+    def _filtered_alert(self, alerts):
+        """Return first matching alert, or None."""
+        # 1) Determine user coords
+        if self.location_source == "entity" and self.tracker_entity_id:
+            state = self.hass.states.get(self.tracker_entity_id)
+            if state and state.attributes.get("latitude") is not None:
+                lat = state.attributes["latitude"]
+                lon = state.attributes["longitude"]
+            else:
+                _LOGGER.warning(
+                    "Tracker %s unavailable; using home location",
+                    self.tracker_entity_id,
+                )
+                lat = self.hass.config.latitude
+                lon = self.hass.config.longitude
         else:
             lat = self.hass.config.latitude
             lon = self.hass.config.longitude
 
+        # 2) Scan alerts
         for alert in alerts:
-            lvl = int(alert["AlertLevel"])
-            if lvl == 10:
-                return alert  # always include national Amber Alerts
-            # Vermist Kind Alert: check area circle
-            area = alert.get("Area", {})
-            circle = area.get("Circle")
+            level = int(alert.get("AlertLevel", 0))
+            # Always trigger on national Amber Alerts
+            if level == 10:
+                return alert
+
+            # For regional, check distance to alert center ≤ max_radius_m
+            circle = alert.get("Area", {}).get("Circle")
             if circle:
-                # format "lat,lon radius_m"
-                parts = circle.split()
-                centre = parts[0].split(",")
-                radius = float(parts[1])
-                if haversine(lat, lon, float(centre[0]), float(centre[1])) <= radius:
+                centre_str, _api_radius = circle.split()
+                clat, clon = [float(x) for x in centre_str.split(",")]
+                distance = haversine(lat, lon, clat, clon)
+                if distance <= self.max_radius_m:
                     return alert
+
         return None
