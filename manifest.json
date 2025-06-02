@@ -1,8 +1,8 @@
 {
-    "domain": "burgernet",
-    "name": "Burgernet Alert",
-    "version": "1.0.0",
-    "documentation": "https://github.com/nnielzz/Burgernet-alert",
+    "domain": "nl_alert",
+    "name": "NL-Alert & Burgernet",
+    "version": "2.0.0",
+    "documentation": "https://github.com/nnielzz/NL-Alert",
     "requirements": [],
     "dependencies": [],
     "codeowners": ["@nnielzz"],

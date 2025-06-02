@@ -14,7 +14,7 @@ from homeassistant.helpers.selector import (
 from .const import DOMAIN
 
 STEP_USER_DATA_SCHEMA = vol.Schema({
-    vol.Required(CONF_NAME, default="Burgernet Alert"): str,
+    vol.Required(CONF_NAME, default="NL-Alert & Burgernet"): str,
     vol.Required(
         "location_source",
         default="home"
@@ -48,21 +48,20 @@ STEP_USER_DATA_SCHEMA = vol.Schema({
     ),
 })
 
-
-class BurgerNetConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Burgernet Alert integration."""
+class NLAlertConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for NL-Alert & Burgernet integration."""
 
     VERSION = 1
 
     async def async_step_user(self, user_input=None):
-        """Handle the initial step."""
+        """Handle the initial setup form."""
         if user_input is None:
             return self.async_show_form(
                 step_id="user",
                 data_schema=STEP_USER_DATA_SCHEMA,
             )
 
-        # Ensure entity_id if they chose entity mode
+        # If user picked "entity" but gave no entity_id, show an error
         if (
             user_input["location_source"] == "entity"
             and not user_input.get(CONF_ENTITY_ID)
