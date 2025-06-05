@@ -1,4 +1,4 @@
-# Burgernet Alert Custom Integration for Home Assistant
+# NL-Alert & Burgernet Custom Integration for Home Assistant
 
 A custom component that brings national AMBER alerts and regional “Missing Child” and NL-Alerts notifications via the Burgernet Land Action Host API and NL-Alert API into Home Assistant. Polls every 10 min, filters by your location and exhibits two sensors with all relevant attributes.
 
