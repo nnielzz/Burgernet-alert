@@ -9,10 +9,10 @@ A custom component that brings AMBER alerts and regional “Missing Child” not
 ### 1. Via HACS (recommended)
 1. Add this repo as **Custom Repository** in HACS:
    - **HACS → Integrations → ⋮ → Custom repositories**  
-   - URL: `https://github.com/nnielzz/Burgernet-alert`  
+   - URL: `https://github.com/nnielzz/NL-Alert`  
    - Choose **Integration** and click **Add**.
-2. In HACS, search for **Burgernet Alert** and click **Install**.
+2. In HACS, search for **NL-Alert** and click **Install**.
 3. Restart Home Assistant.
 
 ### 2. Manually
-1. Place the folder in your config folder: custom_components/burgernet-alert
+1. Place the folder in your config folder: custom_components/nl-alert
