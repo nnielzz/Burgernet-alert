@@ -148,7 +148,11 @@ class NLAlertBinarySensor(CoordinatorEntity, BinarySensorEntity):
             if circle:
                 centre_str, radius_str = circle.split()
                 clat, clon = [float(x) for x in centre_str.split(",")]
-                if haversine(lat, lon, clat, clon) <= float(radius_str):
+                distance = haversine(lat, lon, clat, clon)
+                if (
+                    distance <= float(radius_str)
+                    and distance <= self.max_radius_m
+                ):
                     return True
         return False
 
