@@ -15,5 +15,5 @@ A custom component that brings national AMBER alerts and regional “Missing Chi
 3. Restart Home Assistant.
 
 ### 2. Manually
-1. Place the folder in your config folder: custom_components/nl-alert
+1. Place the files in your config folder: custom_components/nl-alert
 2. Restart Home Assistant
